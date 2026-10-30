@@ -5,14 +5,15 @@
 2. 融資餘額 Table: 全市場融資今日餘額 (張/仟元)、融資增減 (張/仟元)
 3. 大盤資料表 Table: 發行量加權股價指數歷史資料 (開、高、低、收、計算5MA/20MA)
 
-產出專門針對「一般電腦 / 桌面寬螢幕」操作的四圖聯動三竹專業金融工作站：
-- 脫離手機尺寸限制，100% 寬螢幕自適應排版，縱向舒適展開
-- 【圖一】統一奔騰基金：淨值圓點 (Dots) + 走勢連線 + 布林通道 (BBAND) + 波段高低點
-- 【圖二】9日KD 體溫計：9K 快線 + 9D 慢線 + 超買超賣著色區塊 + 鈍化訊號
-- 【圖三】全市場融資籌碼統計圖：金黃融資餘額折線 + 紅增綠減柱狀直方圖 + 清楚張數/億元刻度 (完美還原三竹手機版)
-- 【圖四】加權大盤指數 K 線圖：標準台股開高低收紅漲綠跌蠟燭線 + 5MA/20MA 均線 + 波段極值標註
-- 四圖 X 軸完全同步聯動、滑鼠滾輪自由縮放、滑鼠拖曳平移、金色垂直穿透十字查價線
-- 頂部快速週期切換 (近1月/近3月/近半年/近1年/全部) 與右側「六大指標智能診斷面板」
+專門針對「一般電腦 / 桌面寬螢幕」操作的全新優化版面看盤工作站：
+- 重新排版垂直佈局：大盤指數 K 線圖上移至第二位（緊鄰基金主圖，對比極其清晰）
+- 四大圖表依黃金比例分配高度：
+  【圖一】統一奔騰基金 (34%)：立體淨值圓點 (Dots) + 走勢連線 + 布林通道 (BBAND 20日)
+  【圖二】加權大盤指數 K 線圖 (34%)：空間充沛！台股紅漲綠跌蠟燭線 + 5MA/20MA均線 + 最高最低點標註
+  【圖三】全市場融資籌碼統計圖 (17%)：三竹金黃折線 + 零軸紅增綠減直方柱
+  【圖四】9日KD 體溫計 (15%)：9K/9D雙線 + 80/20 超買超賣著色區塊
+- 滿版自適應一屏無捲動全覽（主流筆電與桌機免滾動即可看清四圖）
+- 金色雙向十字查價線一口氣穿透四圖、滑鼠滾輪自由縮放、滑鼠拖曳平移、快捷週期切換與指標診斷側欄
 """
 
 import sqlite3
@@ -177,12 +178,12 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
 <body class="w-full h-full flex flex-col bg-[#06080b]">
 
     <!-- 1. 頂部金融看盤 Header -->
-    <header class="h-14 bg-[#0a1017] border-b border-[#182330] px-4 flex items-center justify-between select-none z-30 shrink-0">
+    <header class="h-13 bg-[#0a1017] border-b border-[#182330] px-4 flex items-center justify-between select-none z-30 shrink-0">
         <!-- 標的名稱與雙核心指標 -->
         <div class="flex items-center gap-4">
             <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-lg bg-sky-950 border border-sky-600/50 flex items-center justify-center text-sky-400 shadow-md">
-                    <i class="ph-bold ph-chart-polar text-xl"></i>
+                <div class="w-8 h-8 rounded-lg bg-sky-950 border border-sky-600/50 flex items-center justify-center text-sky-400 shadow-md">
+                    <i class="ph-bold ph-chart-polar text-lg"></i>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
@@ -193,7 +194,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                     <div class="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
                         <span>直連：<code class="text-sky-300 font-mono">股市資料庫.db</code></span> •
                         <span>交易日：<strong class="text-slate-200">{total_records} 筆</strong></span> •
-                        <span>融資籌碼 + 大盤指數四圖聯動</span>
+                        <span>雙主圖並列對照</span>
                     </div>
                 </div>
             </div>
@@ -258,27 +259,29 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
 
     <!-- 2. 全域雙向查價即時資訊橫條 (桌面寬版 Info Bar) -->
     <div id="crossInfoBar" class="h-8 bg-[#040608] border-b border-[#151c24] px-4 flex items-center justify-between text-xs font-mono select-none shrink-0 z-20">
-        <div class="flex items-center gap-4 overflow-x-auto whitespace-nowrap">
+        <div class="flex items-center gap-3.5 overflow-x-auto whitespace-nowrap">
             <span class="color-yellow font-bold">時 <span id="infoDate">--/--</span> (<span id="infoDateIso" class="text-slate-400 text-[11px]">----</span>)</span>
             
             <!-- 基金數值 -->
             <span class="text-slate-400">基金淨值: <strong id="infoNav" class="font-bold">--</strong></span>
             <span class="text-slate-400">漲跌: <strong id="infoChange" class="font-bold">--</strong></span>
-            <span class="color-purple">20日中軌: <span id="infoMid">--</span></span>
+            
+            <!-- 大盤數值 (緊鄰基金，對比最快) -->
+            <span class="text-slate-400 pl-2 border-l border-slate-800">加權指數: <strong id="infoTaiex" class="font-bold text-[#ff333a]">--</strong></span>
+            <span class="text-slate-400">大盤漲跌: <strong id="infoTaiexDiff" class="font-bold">--</strong></span>
+            
+            <!-- 布林通道 -->
+            <span class="color-purple pl-2 border-l border-slate-800">中軌: <span id="infoMid">--</span></span>
             <span class="color-cyan">上軌: <span id="infoUpper">--</span></span>
             <span class="color-purple">下軌: <span id="infoLower">--</span></span>
             
-            <!-- KD 數值 -->
-            <span class="color-yellow">9K: <span id="infoK">--</span></span>
-            <span class="color-cyan">9D: <span id="infoD">--</span></span>
-            
             <!-- 融資籌碼數值 -->
-            <span class="text-slate-400">融資餘額: <strong id="infoMargin" class="color-yellow">-- 億</strong></span>
-            <span class="text-slate-400">融資增減: <strong id="infoMarginDiff">-- 億</strong></span>
+            <span class="text-slate-400 pl-2 border-l border-slate-800">融資: <strong id="infoMargin" class="color-yellow">-- 億</strong></span>
+            <span class="text-slate-400">增減: <strong id="infoMarginDiff">-- 億</strong></span>
             
-            <!-- 大盤數值 -->
-            <span class="text-slate-400">加權指數: <strong id="infoTaiex" class="font-bold text-[#ff333a]">--</strong></span>
-            <span class="text-slate-400">大盤漲跌: <strong id="infoTaiexDiff" class="font-bold">--</strong></span>
+            <!-- KD 數值 -->
+            <span class="color-yellow pl-2 border-l border-slate-800">9K: <span id="infoK">--</span></span>
+            <span class="color-cyan">9D: <span id="infoD">--</span></span>
         </div>
         <div class="text-[11px] text-slate-500 hidden sm:flex items-center gap-2">
             <span>🖱️ 滑鼠滾輪縮放 / 拖曳平移</span> • 
@@ -289,7 +292,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
     <!-- 3. 主體內容區 (左側四圖獨立滾動畫布區 + 右側即時診斷側欄) -->
     <div class="flex-1 flex overflow-hidden relative">
         
-        <!-- 左側繪圖容器 (支援流暢縱向滾動，讓四個圖表皆有充裕高度) -->
+        <!-- 左側繪圖容器 (支援流暢縱向展開，四個圖表高度黃金分配) -->
         <div class="flex-1 h-full bg-black relative flex flex-col overflow-y-auto overflow-x-hidden" id="chartWrapper">
             <div id="canvasContainer" class="w-full relative">
                 <canvas id="mainCanvas" class="w-full"></canvas>
@@ -322,7 +325,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                 </div>
             </div>
 
-            <!-- 卡片 2: 加權大盤指數即時狀態 (新增加) -->
+            <!-- 卡片 2: 加權大盤指數即時狀態 -->
             <div class="bg-[#0f151f] p-3 rounded-xl border border-slate-800">
                 <div class="text-[11px] text-slate-400 font-bold mb-1 flex justify-between items-center">
                     <span>加權大盤指數 (TAIEX)</span>
@@ -371,7 +374,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                 </div>
             </div>
 
-            <!-- 卡片 5: 全市場融資籌碼 (完美對照) -->
+            <!-- 卡片 5: 全市場融資籌碼 -->
             <div class="bg-[#0f151f] p-3 rounded-xl border border-slate-800">
                 <div class="text-[11px] text-slate-400 font-bold mb-1.5 flex justify-between items-center">
                     <span>全市場融資籌碼統計</span>
@@ -404,7 +407,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
         </div>
     </div>
 
-    <!-- 高性能四圖聯動 Canvas 繪圖引擎 (基金淨值圓點 + KD體溫 + 融資餘額 + 大盤指數K線) -->
+    <!-- 高性能四圖聯動 Canvas 繪圖引擎 (新版排版：基金主圖 ➔ 大盤K線 ➔ 時間軸 ➔ 融資餘額 ➔ 9日KD) -->
     <script>
         const rawData = {json_data};
         const total = rawData.length;
@@ -423,18 +426,12 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
         let dragStartOffset = 0;
         let visibleCount = 65;
 
-        // 計算 Canvas 邏輯高度
+        // 計算 Canvas 邏輯高度 (自適應視窗高度，保障四圖一屏看清)
         function getRequiredCanvasHeight() {{
             const wrapper = document.getElementById("chartWrapper");
             const wH = wrapper.clientHeight;
-            if (currentMode === "all") {{
-                // 四圖模式：充足固定高度，確保融資餘額和大盤K線絕不被壓縮
-                // 主圖 330px, KD 170px, 融資餘額 190px, 大盤K線 290px, 加上各標題與軸線約 120px = 總共約 1100px
-                return Math.max(wH, 1100);
-            }} else {{
-                // 雙主圖對比模式：主圖 450px, 大盤 450px = 約 960px
-                return Math.max(wH, 960);
-            }}
+            // 720px 為舒適保障下限，若視窗更大則 100% 滿版無捲動
+            return Math.max(wH, 720);
         }}
 
         // 重繪尺寸
@@ -494,6 +491,15 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             navEl.className = `font-bold ${{colorClass}}`;
             changeEl.className = `font-bold ${{colorClass}}`;
 
+            const tEl = document.getElementById("infoTaiex");
+            const tDiffEl = document.getElementById("infoTaiexDiff");
+            tEl.textContent = tClose.toFixed(2);
+            const tSign = tDiff > 0 ? "+" : "";
+            tDiffEl.textContent = `${{tSign}}${{tDiff.toFixed(2)}} (${{tSign}}${{tPct.toFixed(2)}}%)`;
+            const tColorClass = tDiff > 0 ? "color-up" : (tDiff < 0 ? "color-down" : "text-slate-300");
+            tEl.className = `font-bold ${{tColorClass}}`;
+            tDiffEl.className = `font-bold ${{tColorClass}}`;
+
             document.getElementById("infoMid").textContent = mid ? mid.toFixed(2) : "--";
             document.getElementById("infoUpper").textContent = upper ? upper.toFixed(2) : "--";
             document.getElementById("infoLower").textContent = lower ? lower.toFixed(2) : "--";
@@ -504,15 +510,6 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             const mDiffEl = document.getElementById("infoMarginDiff");
             mDiffEl.textContent = `${{mDiff >= 0 ? "+" : ""}}${{mDiff.toFixed(2)}} 億`;
             mDiffEl.className = mDiff >= 0 ? "color-up font-bold" : "color-down font-bold";
-
-            const tEl = document.getElementById("infoTaiex");
-            const tDiffEl = document.getElementById("infoTaiexDiff");
-            tEl.textContent = tClose.toFixed(2);
-            const tSign = tDiff > 0 ? "+" : "";
-            tDiffEl.textContent = `${{tSign}}${{tDiff.toFixed(2)}} (${{tSign}}${{tPct.toFixed(2)}}%)`;
-            const tColorClass = tDiff > 0 ? "color-up" : (tDiff < 0 ? "color-down" : "text-slate-300");
-            tEl.className = `font-bold ${{tColorClass}}`;
-            tDiffEl.className = `font-bold ${{tColorClass}}`;
 
             // 2. 右側側欄同步更新
             document.getElementById("sideBadgeDate").textContent = `${{record["日期"]}} (${{record["西元日期"]}})`;
@@ -615,7 +612,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             biasEl.className = bias20 >= 0 ? "font-bold text-emerald-400" : "font-bold text-rose-400";
         }}
 
-        // 核心渲染函式 (Canvas)
+        // 核心渲染函式 (全新垂直結構與比例分配)
         function render() {{
             if (total === 0) return;
 
@@ -644,52 +641,68 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             const curRecord = rawData[selectedIndex !== -1 ? selectedIndex : total - 1];
 
             // -----------------------------------------------------------------
-            // 版面區域高度配置
+            // 【全新優化版面高度分配與順序重組】
+            // 順序：1. 基金主圖 ➔ 2. 大盤K線(往上提) ➔ 3. 時間軸 ➔ 4. 融資餘額 ➔ 5. 9日KD
             // -----------------------------------------------------------------
             let fundTop, fundH, bbandBarTop, bbandBarH;
+            let taiexTop, taiexH, taiexBarTop, taiexBarH;
             let timeAxisTop, timeAxisH;
-            let sub1BarTop, sub1BarH, sub1Top, sub1H;
             let sub2BarTop, sub2BarH, sub2Top, sub2H;
-            let taiexBarTop, taiexBarH, taiexTop, taiexH;
+            let sub1BarTop, sub1BarH, sub1Top, sub1H;
 
             if (currentMode === "all") {{
-                // 【四圖模式】
-                fundTop = 10;
-                fundH = 310;            // 基金主圖高度 (充沛)
+                // 【四圖模式：大盤指數上移至第二位核心視野，高度黃金比例分配】
+                const fixedBarsH = 22 * 4 + 20; // 4 個 22px 資訊條 + 20px 時間軸 = 108px
+                const padTop = 6;
+                const availNetH = Math.max(540, height - fixedBarsH - padTop - 10);
+
+                // 依黃金比例分配四大圖表高度：
+                fundH = Math.round(availNetH * 0.34);      // 圖一：基金淨值圓點 (34%)
+                taiexH = Math.round(availNetH * 0.34);     // 圖二：大盤指數 K 線 (34%，空間充裕，蠟燭棒與均線極清晰！)
+                sub2H = Math.round(availNetH * 0.17);      // 圖三：融資籌碼統計 (17%，紅綠增減直方柱)
+                sub1H = availNetH - fundH - taiexH - sub2H; // 圖四：9日KD體溫計 (15%，80/20著色帶)
+
+                // 垂直座標依序緊湊銜接：
+                // 1. 基金主圖
+                fundTop = padTop;
                 bbandBarTop = fundTop + fundH;
-                bbandBarH = 24;
+                bbandBarH = 22;
 
-                timeAxisTop = bbandBarTop + bbandBarH;
-                timeAxisH = 22;
+                // 2. 加權大盤指數 K 線圖 (上移至此，緊鄰基金主圖！)
+                taiexTop = bbandBarTop + bbandBarH + 2;
+                taiexBarTop = taiexTop + taiexH;
+                taiexBarH = 22;
 
-                sub1BarTop = timeAxisTop + timeAxisH;
-                sub1BarH = 22;
-                sub1Top = sub1BarTop + sub1BarH;
-                sub1H = 150;            // KD 圖高度
+                // 時間軸 X 軸 (作為主圖與指標副圖的分水嶺)
+                timeAxisTop = taiexBarTop + taiexBarH;
+                timeAxisH = 20;
 
-                sub2BarTop = sub1Top + sub1H + 4;
+                // 3. 全市場融資籌碼統計圖
+                sub2BarTop = timeAxisTop + timeAxisH + 2;
                 sub2BarH = 22;
                 sub2Top = sub2BarTop + sub2BarH;
-                sub2H = 170;            // 融資餘額統計圖高度 (清晰醒目，張數+億元直方柱)
 
-                taiexBarTop = sub2Top + sub2H + 4;
-                taiexBarH = 24;
-                taiexTop = taiexBarTop + taiexBarH;
-                taiexH = 290;           // 大盤 K 線圖高度 (大氣完整)
+                // 4. 9日KD 體溫計
+                sub1BarTop = sub2Top + sub2H + 2;
+                sub1BarH = 22;
+                sub1Top = sub1BarTop + sub1BarH;
             }} else {{
                 // 【基金 vs 大盤 雙主圖對比模式】
-                fundTop = 10;
-                fundH = 410;
+                const fixedBarsH = 22 * 2 + 20;
+                const availNetH = Math.max(500, height - fixedBarsH - 16);
+                fundH = Math.round(availNetH * 0.50);
+                taiexH = availNetH - fundH;
+
+                fundTop = 6;
                 bbandBarTop = fundTop + fundH;
-                bbandBarH = 24;
+                bbandBarH = 22;
 
-                timeAxisTop = bbandBarTop + bbandBarH;
-                timeAxisH = 24;
+                taiexTop = bbandBarTop + bbandBarH + 2;
+                taiexBarTop = taiexTop + taiexH;
+                taiexBarH = 22;
 
-                taiexBarTop = timeAxisTop + timeAxisH;
-                taiexBarH = 24;
-                taiexTop = taiexBarTop + taiexBarH;
-                taiexH = 410;
+                timeAxisTop = taiexBarTop + taiexBarH;
+                timeAxisH = 20;
             }}
 
             // =================================================================
@@ -716,8 +729,8 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             ctx.strokeStyle = "#141922";
             ctx.lineWidth = 1;
             ctx.setLineDash([2, 4]);
-            for (let i = 0; i <= 5; i++) {{
-                const pVal = minNav + (maxNav - minNav) * (i / 5);
+            for (let i = 0; i <= 4; i++) {{
+                const pVal = minNav + (maxNav - minNav) * (i / 4);
                 const yPos = getNavY(pVal);
                 ctx.beginPath();
                 ctx.moveTo(0, yPos);
@@ -856,18 +869,166 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             ctx.lineTo(width, bbandBarTop);
             ctx.stroke();
 
-            ctx.font = "bold 12px 'Roboto Mono', sans-serif";
+            ctx.font = "bold 11px 'Roboto Mono', sans-serif";
             ctx.textAlign = "left";
             ctx.fillStyle = "#ffffff";
-            ctx.fillText("BBAND  >", 12, bbandBarTop + 16);
+            ctx.fillText("BBAND  >", 12, bbandBarTop + 15);
             ctx.fillStyle = "#ffd600";
-            ctx.fillText(`20日中軌: ${{curRecord["BBAND_中軌"] || "--"}} ⇂`, 92, bbandBarTop + 16);
+            ctx.fillText(`20日中軌: ${{curRecord["BBAND_中軌"] || "--"}} ⇂`, 88, bbandBarTop + 15);
             ctx.fillStyle = "#00e5ff";
-            ctx.fillText(`上軌(天花板): ${{curRecord["BBAND_上軌"] || "--"}} ⇃`, 215, bbandBarTop + 16);
+            ctx.fillText(`上軌(天花板): ${{curRecord["BBAND_上軌"] || "--"}} ⇃`, 210, bbandBarTop + 15);
             ctx.fillStyle = "#d500f9";
-            ctx.fillText(`下軌(地板): ${{curRecord["BBAND_下軌"] || "--"}} ⇂`, 375, bbandBarTop + 16);
+            ctx.fillText(`下軌(地板): ${{curRecord["BBAND_下軌"] || "--"}} ⇂`, 370, bbandBarTop + 15);
 
-            // 時間 X 軸標籤
+            // =================================================================
+            // 2. 【圖二：加權大盤指數 (TAIEX) K 線圖】 (上移至第二位核心區！充沛高度空間)
+            // =================================================================
+            let maxT = -Infinity, minT = Infinity;
+            let maxTIdx = 0, minTIdx = 0;
+            visibleData.forEach((d, idx) => {{
+                if (d["大盤最高"] > maxT) {{ maxT = d["大盤最高"]; maxTIdx = idx; }}
+                if (d["大盤最低"] < minT) {{ minT = d["大盤最低"]; minTIdx = idx; }}
+            }});
+            const tPad = (maxT - minT) * 0.08 || 300.0;
+            maxT += tPad;
+            minT -= tPad;
+
+            function getTaiexY(val) {{
+                return taiexTop + taiexH - ((val - minT) / (maxT - minT)) * taiexH;
+            }}
+
+            // 大盤刻度格線
+            for (let i = 0; i <= 4; i++) {{
+                const val = minT + (maxT - minT) * (i / 4);
+                const y = getTaiexY(val);
+                ctx.strokeStyle = "#141922";
+                ctx.setLineDash([2, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(chartW, y);
+                ctx.stroke();
+
+                ctx.fillStyle = "#8a99ad";
+                ctx.font = "11px 'Roboto Mono', sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillText(val.toFixed(0), chartW + 8, y + 4);
+            }}
+            ctx.setLineDash([]);
+
+            // 繪製大盤 K 線 (蠟燭圖：厚實立體紅漲綠跌棒)
+            const candleW = Math.max(3.2, Math.min(20, dotSpacing * 0.72));
+            visibleData.forEach((d, idx) => {{
+                const x = getX(idx);
+                const o = d["大盤開盤"];
+                const h = d["大盤最高"];
+                const l = d["大盤最低"];
+                const c = d["大盤收盤"];
+
+                const yO = getTaiexY(o);
+                const yH = getTaiexY(h);
+                const yL = getTaiexY(l);
+                const yC = getTaiexY(c);
+
+                const isRed = c >= o;
+                const candleColor = isRed ? "#ff333a" : "#00e676";
+
+                // 上下影線
+                ctx.strokeStyle = candleColor;
+                ctx.lineWidth = 1.3;
+                ctx.beginPath();
+                ctx.moveTo(x, yH);
+                ctx.lineTo(x, yL);
+                ctx.stroke();
+
+                // 實體柱狀
+                ctx.fillStyle = candleColor;
+                const topY = Math.min(yO, yC);
+                const bodyH = Math.max(1.8, Math.abs(yO - yC));
+                ctx.fillRect(x - candleW / 2, topY, candleW, bodyH);
+            }});
+
+            // 大盤 5MA (天藍色)
+            ctx.strokeStyle = "#00e5ff";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            visibleData.forEach((d, idx) => {{
+                if (d["大盤5MA"]) {{
+                    const x = getX(idx);
+                    const y = getTaiexY(d["大盤5MA"]);
+                    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }}
+            }});
+            ctx.stroke();
+
+            // 大盤 20MA (金黃色)
+            ctx.strokeStyle = "#ffd600";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            visibleData.forEach((d, idx) => {{
+                if (d["大盤20MA"]) {{
+                    const x = getX(idx);
+                    const y = getTaiexY(d["大盤20MA"]);
+                    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }}
+            }});
+            ctx.stroke();
+
+            // 大盤最高與最低點標註
+            const tHighItem = visibleData[maxTIdx];
+            const tHighX = getX(maxTIdx);
+            const tHighY = getTaiexY(tHighItem["大盤最高"]);
+            ctx.fillStyle = "#ff333a";
+            ctx.font = "bold 12px 'Roboto Mono', sans-serif";
+            ctx.textAlign = tHighX > chartW - 75 ? "right" : "left";
+            ctx.fillText(tHighItem["大盤最高"].toFixed(0), tHighX + (tHighX > chartW - 75 ? -8 : 8), tHighY - 4);
+
+            const tLowItem = visibleData[minTIdx];
+            const tLowX = getX(minTIdx);
+            const tLowY = getTaiexY(tLowItem["大盤最低"]);
+            ctx.fillStyle = "#00e676";
+            ctx.font = "bold 12px 'Roboto Mono', sans-serif";
+            ctx.textAlign = tLowX > chartW - 75 ? "right" : "left";
+            ctx.fillText(tLowItem["大盤最低"].toFixed(0), tLowX + (tLowX > chartW - 75 ? -8 : 8), tLowY + 15);
+
+            // 右側大盤最新點位金色標籤
+            const curTaiexY = getTaiexY(curRecord["大盤收盤"]);
+            ctx.fillStyle = "#ffd600";
+            ctx.fillRect(chartW + 3, curTaiexY - 10, tagW, 20);
+            ctx.fillStyle = "#000000";
+            ctx.font = "bold 11px 'Roboto Mono', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(curRecord["大盤收盤"].toFixed(0), chartW + tagW / 2 + 3, curTaiexY + 4);
+
+            // 大盤狀態列
+            ctx.fillStyle = "#0a0e14";
+            ctx.fillRect(0, taiexBarTop, width, taiexBarH);
+            ctx.strokeStyle = "#161d28";
+            ctx.beginPath();
+            ctx.moveTo(0, taiexBarTop);
+            ctx.lineTo(width, taiexBarTop);
+            ctx.stroke();
+
+            ctx.font = "bold 11px 'Roboto Mono', sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText("加權大盤指數 (TAIEX)  >", 12, taiexBarTop + 15);
+
+            const tClose = curRecord["大盤收盤"];
+            const tDiff = curRecord["大盤漲跌"];
+            const tPct = curRecord["大盤漲跌幅"];
+            const tIsUp = tDiff >= 0;
+            ctx.fillStyle = tIsUp ? "#ff333a" : "#00e676";
+            ctx.fillText(`${{tClose.toFixed(2)}} (${{tDiff >= 0 ? "+" : ""}}${{tDiff.toFixed(2)}}, ${{tDiff >= 0 ? "+" : ""}}${{tPct.toFixed(2)}}%) ⇂`, 180, taiexBarTop + 15);
+
+            ctx.fillStyle = "#00e5ff";
+            ctx.fillText(`5MA: ${{curRecord["大盤5MA"] ? curRecord["大盤5MA"].toFixed(1) : "--"}}`, 405, taiexBarTop + 15);
+
+            ctx.fillStyle = "#ffd600";
+            ctx.fillText(`20MA: ${{curRecord["大盤20MA"] ? curRecord["大盤20MA"].toFixed(1) : "--"}}`, 510, taiexBarTop + 15);
+
+            // =================================================================
+            // 時間 X 軸標籤 (位於兩大主圖與下方兩大指標副圖的分水嶺)
+            // =================================================================
             ctx.fillStyle = "#05070a";
             ctx.fillRect(0, timeAxisTop, width, timeAxisH);
             ctx.strokeStyle = "#141a22";
@@ -882,18 +1043,103 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                 const ym = d["西元日期"].slice(0, 7);
                 if (ym !== lastMonthStr && idx > 3) {{
                     const x = getX(idx);
-                    ctx.fillText(ym.replace("-", "/"), x, timeAxisTop + 15);
+                    ctx.fillText(ym.replace("-", "/"), x, timeAxisTop + 14);
                     lastMonthStr = ym;
                 }}
             }});
 
             if (currentMode === "all") {{
                 // =============================================================
-                // 2. 【圖二：9日KD 體溫計】
+                // 3. 【圖三：全市場融資籌碼統計圖 (金黃折線 + 紅增綠減柱狀直方圖)】
+                // =============================================================
+                ctx.fillStyle = "#0a0e14";
+                ctx.fillRect(0, sub2BarTop, width, sub2BarH);
+                ctx.font = "bold 11px 'Roboto Mono', sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText("融資餘額  >", 12, sub2BarTop + 15);
+
+                const mBal = curRecord["融資餘額_億"] || 0;
+                const mDiff = curRecord["融資增減_億"] || 0;
+                const mShares = curRecord["融資餘額_張"] || 0;
+                ctx.fillStyle = "#ffd600";
+                ctx.fillText(`全市場融資餘額: ${{mBal.toFixed(2)}} 億 (${{mShares.toLocaleString()}} 張) ⇂`, 95, sub2BarTop + 15);
+
+                ctx.fillStyle = mDiff >= 0 ? "#ff333a" : "#00e676";
+                ctx.fillText(`當日增減: ${{mDiff >= 0 ? "+" : ""}}${{mDiff.toFixed(2)}} 億`, 375, sub2BarTop + 15);
+
+                let maxM = -Infinity, minM = Infinity;
+                visibleData.forEach(d => {{
+                    const b = d["融資餘額_億"] || 0;
+                    if (b > maxM) maxM = b;
+                    if (b < minM) minM = b;
+                }});
+                const mPad = (maxM - minM) * 0.15 || 40.0;
+                maxM += mPad;
+                minM -= mPad;
+
+                function getMarginY(val) {{
+                    return sub2Top + sub2H - ((val - minM) / (maxM - minM)) * sub2H;
+                }}
+
+                // 融資 Y 軸刻度
+                const mSteps = [maxM - mPad * 0.4, (maxM + minM) / 2, minM + mPad * 0.4];
+                mSteps.forEach(val => {{
+                    const y = getMarginY(val);
+                    ctx.strokeStyle = "#141922";
+                    ctx.setLineDash([2, 4]);
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(chartW, y);
+                    ctx.stroke();
+
+                    ctx.fillStyle = "#8a99ad";
+                    ctx.font = "11px 'Roboto Mono', sans-serif";
+                    ctx.textAlign = "left";
+                    ctx.fillText(val.toFixed(0) + "億", chartW + 8, y + 4);
+                }});
+                ctx.setLineDash([]);
+
+                // 融資增減柱狀圖 (零軸基準線)
+                const zeroY = sub2Top + sub2H * 0.68;
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, zeroY);
+                ctx.lineTo(chartW, zeroY);
+                ctx.stroke();
+
+                visibleData.forEach((d, idx) => {{
+                    const x = getX(idx);
+                    const diff = d["融資增減_億"] || 0;
+                    const isPos = diff >= 0;
+                    ctx.fillStyle = isPos ? "#ff333a" : "#00e676";
+                    const barH = Math.min(sub2H * 0.45, Math.abs(diff) * 2.2);
+                    const barW = Math.max(2.5, dotSpacing * 0.55);
+                    if (isPos) {{
+                        ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
+                    }} else {{
+                        ctx.fillRect(x - barW / 2, zeroY, barW, barH);
+                    }}
+                }});
+
+                // 融資餘額走勢折線 (三竹金黃色)
+                ctx.strokeStyle = "#ffd600";
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                visibleData.forEach((d, idx) => {{
+                    const x = getX(idx);
+                    const y = getMarginY(d["融資餘額_億"]);
+                    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }});
+                ctx.stroke();
+
+                // =============================================================
+                // 4. 【圖四：9日KD 體溫計】
                 // =============================================================
                 ctx.fillStyle = "#0a0e14";
                 ctx.fillRect(0, sub1BarTop, width, sub1BarH);
-                ctx.font = "bold 12px 'Roboto Mono', sans-serif";
+                ctx.font = "bold 11px 'Roboto Mono', sans-serif";
                 ctx.textAlign = "left";
                 ctx.fillStyle = "#ffffff";
                 ctx.fillText("KD  >", 12, sub1BarTop + 15);
@@ -974,231 +1220,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                     idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                 }});
                 ctx.stroke();
-
-                // =============================================================
-                // 3. 【圖三：全市場融資籌碼統計圖 (金黃折線 + 紅增綠減柱狀直方圖)】
-                // =============================================================
-                ctx.fillStyle = "#0a0e14";
-                ctx.fillRect(0, sub2BarTop, width, sub2BarH);
-                ctx.font = "bold 12px 'Roboto Mono', sans-serif";
-                ctx.textAlign = "left";
-                ctx.fillStyle = "#ffffff";
-                ctx.fillText("融資餘額  >", 12, sub2BarTop + 15);
-
-                const mBal = curRecord["融資餘額_億"] || 0;
-                const mDiff = curRecord["融資增減_億"] || 0;
-                const mShares = curRecord["融資餘額_張"] || 0;
-                ctx.fillStyle = "#ffd600";
-                ctx.fillText(`全市場融資餘額: ${{mBal.toFixed(2)}} 億 (${{mShares.toLocaleString()}} 張) ⇂`, 100, sub2BarTop + 15);
-
-                ctx.fillStyle = mDiff >= 0 ? "#ff333a" : "#00e676";
-                ctx.fillText(`當日增減: ${{mDiff >= 0 ? "+" : ""}}${{mDiff.toFixed(2)}} 億`, 380, sub2BarTop + 15);
-
-                let maxM = -Infinity, minM = Infinity;
-                visibleData.forEach(d => {{
-                    const b = d["融資餘額_億"] || 0;
-                    if (b > maxM) maxM = b;
-                    if (b < minM) minM = b;
-                }});
-                const mPad = (maxM - minM) * 0.15 || 40.0;
-                maxM += mPad;
-                minM -= mPad;
-
-                function getMarginY(val) {{
-                    return sub2Top + sub2H - ((val - minM) / (maxM - minM)) * sub2H;
-                }}
-
-                // 融資 Y 軸刻度
-                const mSteps = [maxM - mPad * 0.4, (maxM + minM) / 2, minM + mPad * 0.4];
-                mSteps.forEach(val => {{
-                    const y = getMarginY(val);
-                    ctx.strokeStyle = "#141922";
-                    ctx.setLineDash([2, 4]);
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(chartW, y);
-                    ctx.stroke();
-
-                    ctx.fillStyle = "#8a99ad";
-                    ctx.font = "11px 'Roboto Mono', sans-serif";
-                    ctx.textAlign = "left";
-                    ctx.fillText(val.toFixed(0) + "億", chartW + 8, y + 4);
-                }});
-                ctx.setLineDash([]);
-
-                // 融資增減柱狀圖 (零軸基準線)
-                const zeroY = sub2Top + sub2H * 0.70;
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(0, zeroY);
-                ctx.lineTo(chartW, zeroY);
-                ctx.stroke();
-
-                visibleData.forEach((d, idx) => {{
-                    const x = getX(idx);
-                    const diff = d["融資增減_億"] || 0;
-                    const isPos = diff >= 0;
-                    ctx.fillStyle = isPos ? "#ff333a" : "#00e676";
-                    const barH = Math.min(sub2H * 0.45, Math.abs(diff) * 2.2);
-                    const barW = Math.max(2.5, dotSpacing * 0.55);
-                    if (isPos) {{
-                        ctx.fillRect(x - barW / 2, zeroY - barH, barW, barH);
-                    }} else {{
-                        ctx.fillRect(x - barW / 2, zeroY, barW, barH);
-                    }}
-                }});
-
-                // 融資餘額走勢折線 (三竹金黃色)
-                ctx.strokeStyle = "#ffd600";
-                ctx.lineWidth = 1.6;
-                ctx.beginPath();
-                visibleData.forEach((d, idx) => {{
-                    const x = getX(idx);
-                    const y = getMarginY(d["融資餘額_億"]);
-                    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                }});
-                ctx.stroke();
             }}
-
-            // =================================================================
-            // 4. 【圖四：加權大盤指數 (TAIEX) K 線圖】 (開高低收紅漲綠跌實體棒 + 5MA/20MA)
-            // =================================================================
-            ctx.fillStyle = "#0a0e14";
-            ctx.fillRect(0, taiexBarTop, width, taiexBarH);
-            ctx.font = "bold 12px 'Roboto Mono', sans-serif";
-            ctx.textAlign = "left";
-            ctx.fillStyle = "#ffffff";
-            ctx.fillText("加權大盤指數 (TAIEX)  >", 12, taiexBarTop + 16);
-
-            const tClose = curRecord["大盤收盤"];
-            const tDiff = curRecord["大盤漲跌"];
-            const tPct = curRecord["大盤漲跌幅"];
-            const tIsUp = tDiff >= 0;
-            ctx.fillStyle = tIsUp ? "#ff333a" : "#00e676";
-            ctx.fillText(`${{tClose.toFixed(2)}} (${{tDiff >= 0 ? "+" : ""}}${{tDiff.toFixed(2)}}, ${{tDiff >= 0 ? "+" : ""}}${{tPct.toFixed(2)}}%) ⇂`, 185, taiexBarTop + 16);
-
-            ctx.fillStyle = "#00e5ff";
-            ctx.fillText(`5MA: ${{curRecord["大盤5MA"] ? curRecord["大盤5MA"].toFixed(1) : "--"}}`, 410, taiexBarTop + 16);
-
-            ctx.fillStyle = "#ffd600";
-            ctx.fillText(`20MA: ${{curRecord["大盤20MA"] ? curRecord["大盤20MA"].toFixed(1) : "--"}}`, 515, taiexBarTop + 16);
-
-            let maxT = -Infinity, minT = Infinity;
-            let maxTIdx = 0, minTIdx = 0;
-            visibleData.forEach((d, idx) => {{
-                if (d["大盤最高"] > maxT) {{ maxT = d["大盤最高"]; maxTIdx = idx; }}
-                if (d["大盤最低"] < minT) {{ minT = d["大盤最低"]; minTIdx = idx; }}
-            }});
-            const tPad = (maxT - minT) * 0.08 || 300.0;
-            maxT += tPad;
-            minT -= tPad;
-
-            function getTaiexY(val) {{
-                return taiexTop + taiexH - ((val - minT) / (maxT - minT)) * taiexH;
-            }}
-
-            // 大盤刻度格線
-            for (let i = 0; i <= 4; i++) {{
-                const val = minT + (maxT - minT) * (i / 4);
-                const y = getTaiexY(val);
-                ctx.strokeStyle = "#141922";
-                ctx.setLineDash([2, 4]);
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(chartW, y);
-                ctx.stroke();
-
-                ctx.fillStyle = "#8a99ad";
-                ctx.font = "11px 'Roboto Mono', sans-serif";
-                ctx.textAlign = "left";
-                ctx.fillText(val.toFixed(0), chartW + 8, y + 4);
-            }}
-            ctx.setLineDash([]);
-
-            // 繪製大盤 K 線 (蠟燭圖)
-            const candleW = Math.max(2.8, Math.min(18, dotSpacing * 0.70));
-            visibleData.forEach((d, idx) => {{
-                const x = getX(idx);
-                const o = d["大盤開盤"];
-                const h = d["大盤最高"];
-                const l = d["大盤最低"];
-                const c = d["大盤收盤"];
-
-                const yO = getTaiexY(o);
-                const yH = getTaiexY(h);
-                const yL = getTaiexY(l);
-                const yC = getTaiexY(c);
-
-                const isRed = c >= o;
-                const candleColor = isRed ? "#ff333a" : "#00e676";
-
-                // 上下影線
-                ctx.strokeStyle = candleColor;
-                ctx.lineWidth = 1.3;
-                ctx.beginPath();
-                ctx.moveTo(x, yH);
-                ctx.lineTo(x, yL);
-                ctx.stroke();
-
-                // 實體柱狀
-                ctx.fillStyle = candleColor;
-                const topY = Math.min(yO, yC);
-                const bodyH = Math.max(1.8, Math.abs(yO - yC));
-                ctx.fillRect(x - candleW / 2, topY, candleW, bodyH);
-            }});
-
-            // 大盤 5MA (天藍色)
-            ctx.strokeStyle = "#00e5ff";
-            ctx.lineWidth = 1.3;
-            ctx.beginPath();
-            visibleData.forEach((d, idx) => {{
-                if (d["大盤5MA"]) {{
-                    const x = getX(idx);
-                    const y = getTaiexY(d["大盤5MA"]);
-                    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                }}
-            }});
-            ctx.stroke();
-
-            // 大盤 20MA (金黃色)
-            ctx.strokeStyle = "#ffd600";
-            ctx.lineWidth = 1.3;
-            ctx.beginPath();
-            visibleData.forEach((d, idx) => {{
-                if (d["大盤20MA"]) {{
-                    const x = getX(idx);
-                    const y = getTaiexY(d["大盤20MA"]);
-                    idx === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-                }}
-            }});
-            ctx.stroke();
-
-            // 大盤最高與最低點標註
-            const tHighItem = visibleData[maxTIdx];
-            const tHighX = getX(maxTIdx);
-            const tHighY = getTaiexY(tHighItem["大盤最高"]);
-            ctx.fillStyle = "#ff333a";
-            ctx.font = "bold 12px 'Roboto Mono', sans-serif";
-            ctx.textAlign = tHighX > chartW - 75 ? "right" : "left";
-            ctx.fillText(tHighItem["大盤最高"].toFixed(0), tHighX + (tHighX > chartW - 75 ? -8 : 8), tHighY - 4);
-
-            const tLowItem = visibleData[minTIdx];
-            const tLowX = getX(minTIdx);
-            const tLowY = getTaiexY(tLowItem["大盤最低"]);
-            ctx.fillStyle = "#00e676";
-            ctx.font = "bold 12px 'Roboto Mono', sans-serif";
-            ctx.textAlign = tLowX > chartW - 75 ? "right" : "left";
-            ctx.fillText(tLowItem["大盤最低"].toFixed(0), tLowX + (tLowX > chartW - 75 ? -8 : 8), tLowY + 15);
-
-            // 右側大盤最新點位金色標籤
-            const curTaiexY = getTaiexY(curRecord["大盤收盤"]);
-            ctx.fillStyle = "#ffd600";
-            ctx.fillRect(chartW + 3, curTaiexY - 10, tagW, 20);
-            ctx.fillStyle = "#000000";
-            ctx.font = "bold 11px 'Roboto Mono', sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText(curRecord["大盤收盤"].toFixed(0), chartW + tagW / 2 + 3, curTaiexY + 4);
 
             // =================================================================
             // 5. 【金色貫穿四圖查價十字線】
@@ -1218,7 +1240,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                     ctx.lineTo(crossX, height);
                     ctx.stroke();
 
-                    // 水平查價線 (主圖內)
+                    // 基金水平查價線
                     const selNavY = getNavY(selRecord["基金淨值"]);
                     ctx.strokeStyle = "rgba(255, 214, 0, 0.4)";
                     ctx.setLineDash([3, 3]);
@@ -1227,7 +1249,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                     ctx.lineTo(chartW, selNavY);
                     ctx.stroke();
 
-                    // 大盤水平查價線
+                    // 大盤水平查價線 (現在大盤在上半部，查價超直觀！)
                     const selTaiexY = getTaiexY(selRecord["大盤收盤"]);
                     ctx.beginPath();
                     ctx.moveTo(0, selTaiexY);
@@ -1248,7 +1270,7 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
                     ctx.fillStyle = "#000000";
                     ctx.font = "bold 11px 'Roboto Mono', sans-serif";
                     ctx.textAlign = "center";
-                    ctx.fillText(selRecord["西元日期"].replace(/-/g, "/"), crossX, timeAxisTop + 15);
+                    ctx.fillText(selRecord["西元日期"].replace(/-/g, "/"), crossX, timeAxisTop + 14);
                 }}
             }}
         }}
@@ -1297,9 +1319,8 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             isDragging = false;
         }});
 
-        // 滑鼠滾輪縮放 (Shift+滾輪 或 Ctrl+滾輪 也平滑縮放天數)
+        // 滑鼠滾輪縮放 (平滑縮放天數與間距)
         canvas.addEventListener("wheel", (e) => {{
-            // 判斷是否為橫向或垂直放大
             if (e.ctrlKey || Math.abs(e.deltaX) > 0 || e.altKey) {{
                 e.preventDefault();
             }}
@@ -1418,10 +1439,13 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)
         
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+        
     with open("code_artifact.html", "w", encoding="utf-8") as f:
         f.write(html_content)
         
-    print(f"成功產出四圖聯動桌面電腦專用看盤工作站：{output_path} 與 code_artifact.html！")
+    print(f"成功產出全新排版四圖聯動看盤工作站：{output_path}、index.html 與 code_artifact.html！")
 
 if __name__ == "__main__":
     generate_desktop_html()
