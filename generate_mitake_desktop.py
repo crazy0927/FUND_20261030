@@ -248,6 +248,13 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             <!-- 縮放與控制工具 -->
             <button id="btnZoomIn" class="w-8 h-8 rounded-lg bg-[#111722] border border-[#1e2a3a] text-slate-300 hover:text-white flex items-center justify-center text-sm font-bold shadow-xs" title="放大">＋</button>
             <button id="btnZoomOut" class="w-8 h-8 rounded-lg bg-[#111722] border border-[#1e2a3a] text-slate-300 hover:text-white flex items-center justify-center text-sm font-bold shadow-xs" title="縮小">－</button>
+            
+            <!-- 大盤更新按鈕 (抓取一星期內缺少的 TWSE 大盤資料並新增至大盤資料表) -->
+            <button id="btnUpdateTaiex" class="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition select-none" title="檢查並抓取 TWSE 近一星期未收錄之大盤資料寫入資料庫">
+                <i class="ph-bold ph-arrows-clockwise text-sm" id="iconUpdateTaiex"></i>
+                <span id="textUpdateTaiex">大盤更新</span>
+            </button>
+
             <button id="btnReset" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-xs flex items-center gap-1">
                 <i class="ph-bold ph-arrow-counter-clockwise"></i> 最新
             </button>
@@ -404,6 +411,17 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             <div class="pt-2 border-t border-slate-800/80 text-[10px] text-slate-500 leading-relaxed">
                 ※ 數據每日收盤後自統一投信與臺灣證券交易所 (TWSE) 同步，即時儲存於 SQLite 資料庫。
             </div>
+        </div>
+    </div>
+
+    <!-- 4. 三竹風格即時通知 Toast -->
+    <div id="toastNotification" class="fixed bottom-6 right-6 max-w-sm bg-[#0a141f] border border-[#1b3a5b] text-white px-4 py-3 rounded-xl shadow-2xl z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none flex items-start gap-3">
+        <div id="toastIcon" class="text-xl shrink-0 mt-0.5 text-emerald-400">
+            <i class="ph-bold ph-check-circle"></i>
+        </div>
+        <div class="flex-1">
+            <div id="toastTitle" class="font-bold text-xs text-white">通知</div>
+            <div id="toastMessage" class="text-[11px] text-slate-300 mt-0.5 leading-relaxed font-sans">內容</div>
         </div>
     </div>
 
@@ -1424,6 +1442,67 @@ def generate_desktop_html(output_path=OUTPUT_HTML):
             const panel = document.getElementById("sidePanel");
             panel.classList.toggle("hidden");
             setTimeout(resizeCanvas, 30);
+        }});
+
+        // 顯示三竹風格 Toast 通知
+        let toastTimer = null;
+        function showToast(title, msg, isSuccess = true) {{
+            const toast = document.getElementById("toastNotification");
+            const titleEl = document.getElementById("toastTitle");
+            const msgEl = document.getElementById("toastMessage");
+            const iconEl = document.getElementById("toastIcon");
+
+            titleEl.textContent = title;
+            msgEl.innerHTML = msg;
+            iconEl.innerHTML = isSuccess ? '<i class="ph-bold ph-check-circle text-emerald-400"></i>' : '<i class="ph-bold ph-info text-amber-400"></i>';
+
+            toast.classList.remove("translate-y-24", "opacity-0", "pointer-events-none");
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {{
+                toast.classList.add("translate-y-24", "opacity-0", "pointer-events-none");
+            }}, 5000);
+        }}
+
+        // 大盤更新按鈕：抓取近一星期缺漏之 TWSE 大盤資料並新增至資料庫
+        document.getElementById("btnUpdateTaiex").addEventListener("click", async () => {{
+            const btn = document.getElementById("btnUpdateTaiex");
+            const icon = document.getElementById("iconUpdateTaiex");
+            const text = document.getElementById("textUpdateTaiex");
+
+            btn.disabled = true;
+            icon.classList.add("animate-spin");
+            text.textContent = "抓取檢查中...";
+
+            // 優先連線本地整合伺服器 API
+            const targetUrl = window.location.origin.includes("localhost") || window.location.origin.includes("127.0.0.1")
+                ? "/api/update_taiex"
+                : "http://localhost:8000/api/update_taiex";
+
+            try {{
+                const resp = await fetch(targetUrl, {{ method: "POST" }});
+                if (resp.ok) {{
+                    const result = await resp.json();
+                    if (result.new_count > 0) {{
+                        showToast("大盤資料庫更新成功", `已自 TWSE 抓取並新增 <b>${{result.new_count}}</b> 筆最新交易日數據（${{result.new_dates.join(", ")}}）至【大盤資料表】！正在刷新工作站...`, true);
+                        setTimeout(() => window.location.reload(), 1500);
+                    }} else {{
+                        showToast("大盤資料已為最新", "檢查完成：Table【大盤資料表】近一星期內之開盤日資料已全部齊全，無需重複新增！", true);
+                    }}
+                }} else {{
+                    throw new Error(`HTTP ${{resp.status}}`);
+                }}
+            }} catch (err) {{
+                // 若無法連線本地後端 (例如純靜態雙擊開啟或在 GitHub Pages)
+                showToast(
+                    "大盤更新服務提示",
+                    "您目前以靜態模式瀏覽。若要將 TWSE 近一週大盤最新數據直接寫入本地【股市資料庫.db】，請在專案目錄雙擊執行 <b>啟動看盤工作站.bat</b>，或於終端機執行 <code>python fetch_twse_taiex.py --recent</code>！",
+                    false
+                );
+            }} finally {{
+                btn.disabled = false;
+                icon.classList.remove("animate-spin");
+                text.textContent = "大盤更新";
+            }}
         }});
 
         // 初始化

@@ -1,18 +1,30 @@
 # -*- coding: utf-8 -*-
 """
-臺灣證券交易所 (TWSE) 發行量加權股價指數歷史資料抓取程式
+臺灣證券交易所 (TWSE) 發行量加權股價指數歷史資料抓取與更新程式
 抓取區間：民國 114 年 1 月 1 日 (2025/01/01) 至今日 (動態取當天日期)
 API 端點：https://www.twse.com.tw/indicesReport/MI_5MINS_HIST
 儲存目標：SQLite 資料庫 "股市資料庫.db" 中的 "大盤資料表"
+
+支援功能：
+1. 完整全量歷史資料補齊 (fetch_twse_taiex)
+2. 最近一個星期增量資料更新 (update_recent_week_taiex)：只抓取一星期內缺少的交易日並追加新增到大盤資料表
 """
 
 import time
 import datetime
 import sqlite3
+import argparse
+import sys
 import requests
 import pandas as pd
 
-def clear_market_table(db_path="股市資料庫.db", table_name="大盤資料表"):
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
+DB_FILE = "股市資料庫.db"
+TABLE_NAME = "大盤資料表"
+
+def clear_market_table(db_path=DB_FILE, table_name=TABLE_NAME):
     """清空指定之 SQLite 大盤資料表"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -21,17 +33,13 @@ def clear_market_table(db_path="股市資料庫.db", table_name="大盤資料表
     conn.close()
     print(f"已清空資料庫 [{db_path}] 中的 [{table_name}] 資料表。")
 
-def save_to_sqlite(df, db_path="股市資料庫.db", table_name="大盤資料表"):
+def save_to_sqlite(df, db_path=DB_FILE, table_name=TABLE_NAME):
     """
     將大盤歷史資料儲存/更新至 SQLite 資料庫。
-    
-    :param df: 包含大盤資料的 pandas DataFrame
-    :param db_path: SQLite 資料庫檔案路徑，預設為 '股市資料庫.db'
-    :param table_name: 資料表名稱，預設為 '大盤資料表'
     """
     if df is None or df.empty:
         print("沒有資料可寫入資料庫。")
-        return
+        return 0
         
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -48,7 +56,6 @@ def save_to_sqlite(df, db_path="股市資料庫.db", table_name="大盤資料表
         )
     """)
     
-    # 使用 INSERT OR REPLACE 進行冪等寫入（若已存在相同日期則更新數值）
     insert_sql = f"""
         INSERT OR REPLACE INTO "{table_name}" (西元日期, 民國日期, 開盤指數, 最高指數, 最低指數, 收盤指數)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -69,44 +76,143 @@ def save_to_sqlite(df, db_path="股市資料庫.db", table_name="大盤資料表
     cursor.executemany(insert_sql, records)
     conn.commit()
     
-    # 查詢目前資料表總筆數與日期起訖
     cursor.execute(f'SELECT COUNT(*), MIN(民國日期), MAX(民國日期) FROM "{table_name}"')
     total_count, min_date, max_date = cursor.fetchone()
     conn.close()
     
     print(f"SQLite 寫入成功：資料庫 [{db_path}] / 資料表 [{table_name}]")
     print(f"本次寫入/更新：{len(records)} 筆，資料表累計總筆數：{total_count} 筆 (區間: 民國 {min_date} ~ 民國 {max_date})")
+    return len(records)
 
-
-def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="股市資料庫.db", table_name="大盤資料表", clear_table=False, delay=2.0):
+def update_recent_week_taiex(db_path=DB_FILE, table_name=TABLE_NAME):
     """
-    抓取 TWSE 發行量加權股價指數歷史資料並存入 CSV、Excel 與 SQLite 資料庫。
+    檢查 Table 大盤資料表 最近一個星期 (7天內) 沒有的 Data，
+    連線至 TWSE 抓取後，新增寫入到 Table 大盤資料表。
+    """
+    today = datetime.date.today()
+    one_week_ago = today - datetime.timedelta(days=7)
     
-    :param start_date_str: 起始日期字串 (格式: YYYY-MM-DD)，預設為 '2025-01-01' (民國 114 年 1 月 1 日)
-    :param end_date_str: 結束日期字串 (格式: YYYY-MM-DD)，若為 None 則自動取系統當日 (今日)
-    :param db_path: SQLite 資料庫路徑
-    :param table_name: SQLite 資料表名稱
-    :param clear_table: 抓取寫入前是否清空資料表
-    :param delay: 每次請求間隔秒數
+    print("=" * 55)
+    print("【執行增量更新】開始檢查 Table [大盤資料表] 近一星期缺失數據")
+    print(f"今日日期（動態）：{today.strftime('%Y-%m-%d')} (民國 {today.year - 1911} 年 {today.month:02d} 月 {today.day:02d} 日)")
+    print(f"檢查範圍（近一星期）：{one_week_ago.strftime('%Y-%m-%d')} ~ {today.strftime('%Y-%m-%d')}")
+    print("=" * 55)
+    
+    # 1. 查詢資料庫中近一星期已存在的日期
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS "{table_name}" (
+            西元日期 TEXT PRIMARY KEY,
+            民國日期 TEXT,
+            開盤指數 REAL,
+            最高指數 REAL,
+            最低指數 REAL,
+            收盤指數 REAL
+        )
+    """)
+    cursor.execute(f'SELECT 西元日期 FROM "{table_name}" WHERE 西元日期 >= ?;', (one_week_ago.strftime("%Y-%m-%d"),))
+    existing_dates = set(row[0] for row in cursor.fetchall())
+    conn.close()
+    
+    print(f"資料庫中近一星期已有之日期 ({len(existing_dates)} 天):", sorted(list(existing_dates)))
+    
+    # 2. 計算需要向 TWSE 查詢的月份 (若近 7 天跨月，則抓取這兩個月份)
+    target_months = []
+    curr = datetime.date(one_week_ago.year, one_week_ago.month, 1)
+    while curr <= today:
+        target_months.append(curr.strftime("%Y%m01"))
+        if curr.month == 12:
+            curr = datetime.date(curr.year + 1, 1, 1)
+        else:
+            curr = datetime.date(curr.year, curr.month + 1, 1)
+            
+    # 3. 發起請求向 TWSE 抓取
+    session = requests.Session()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest"
+    }
+    
+    new_records = []
+    for month_str in target_months:
+        url = f"https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date={month_str}"
+        try:
+            resp = session.get(url, headers=headers, timeout=12)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("stat") == "OK" and "data" in data:
+                    for row in data["data"]:
+                        parts = row[0].split("/")
+                        if len(parts) == 3:
+                            y_ad = int(parts[0]) + 1911
+                            m_val = int(parts[1])
+                            d_val = int(parts[2])
+                            row_dt = datetime.date(y_ad, m_val, d_val)
+                            row_iso = row_dt.strftime("%Y-%m-%d")
+                            
+                            # 條件：在近一星期範圍內，且資料庫目前「沒有」這筆 Data
+                            if one_week_ago <= row_dt <= today and row_iso not in existing_dates:
+                                new_records.append({
+                                    "民國日期": row[0],
+                                    "西元日期": row_iso,
+                                    "開盤指數": float(row[1].replace(",", "")),
+                                    "最高指數": float(row[2].replace(",", "")),
+                                    "最低指數": float(row[3].replace(",", "")),
+                                    "收盤指數": float(row[4].replace(",", ""))
+                                })
+        except Exception as e:
+            print(f"抓取 {month_str} 異常: {e}")
+            
+    if new_records:
+        df_new = pd.DataFrame(new_records)
+        df_new.drop_duplicates(subset=["西元日期"], inplace=True)
+        df_new.sort_values(by="西元日期", inplace=True)
+        print(f"\n[發現新資料] 找到 Table [大盤資料表] 一星期內沒有的 Data 共 {len(df_new)} 筆：")
+        print(df_new.to_string(index=False))
+        
+        # 寫入 SQLite Table 大盤資料表
+        inserted_count = save_to_sqlite(df_new, db_path=db_path, table_name=table_name)
+        
+        # 4. 同步呼叫產生器，更新 mitake_fund_desktop.html, index.html, code_artifact.html
+        try:
+            import generate_mitake_desktop
+            generate_mitake_desktop.generate_desktop_html()
+            print("已同步更新 mitake_fund_desktop.html、index.html 與 code_artifact.html！")
+        except Exception as e:
+            print(f"產生 HTML 看盤工作站時發生提醒: {e}")
+            
+        return {
+            "status": "success",
+            "message": f"成功新增 {len(df_new)} 筆大盤最新數據至資料庫！",
+            "new_count": len(df_new),
+            "new_dates": df_new["西元日期"].tolist(),
+            "latest_record": df_new.iloc[-1].to_dict()
+        }
+    else:
+        print("\n[檢查完成] Table [大盤資料表] 近一星期內之開盤日資料已全部齊全，無缺少 Data！")
+        return {
+            "status": "up_to_date",
+            "message": "近一星期內之大盤資料已為最新，無需新增！",
+            "new_count": 0,
+            "new_dates": []
+        }
+
+def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path=DB_FILE, table_name=TABLE_NAME, clear_table=False, delay=2.0):
+    """
+    抓取 TWSE 發行量加權股價指數歷史資料 (全量模式)。
     """
     if clear_table:
         clear_market_table(db_path, table_name)
         
-    # 解析起始日期
     start_dt = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    end_dt = datetime.date.today() if end_date_str is None else datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
     
-    # 動態取得今日日期 (若未指定結束日，則取執行當天的最新日期)
-    if end_date_str is None:
-        end_dt = datetime.date.today()
-    else:
-        end_dt = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
-    
-    # 產生月份列表 (YYYYMM01)
     current_dt = datetime.date(start_dt.year, start_dt.month, 1)
     target_months = []
     while current_dt <= end_dt:
         target_months.append(current_dt.strftime("%Y%m01"))
-        # 前進至下個月
         if current_dt.month == 12:
             current_dt = datetime.date(current_dt.year + 1, 1, 1)
         else:
@@ -131,15 +237,12 @@ def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="�
     }
     
     all_records = []
-    fields = ["日期", "開盤指數", "最高指數", "最低指數", "收盤指數"]
-    
     for idx, month_str in enumerate(target_months, start=1):
         year_tw = int(month_str[:4]) - 1911
         month = int(month_str[4:6])
         url = f"https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date={month_str}"
         print(f"[{idx}/{len(target_months)}] 抓取 {year_tw} 年 {month:02d} 月資料 (date={month_str})...", end=" ", flush=True)
         
-        success = False
         for retry in range(1, 4):
             try:
                 resp = session.get(url, headers=headers, timeout=15)
@@ -151,11 +254,8 @@ def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="�
                     data = resp.json()
                     if data.get("stat") == "OK" and "data" in data:
                         month_data = data["data"]
-                        if "fields" in data:
-                            fields = data["fields"]
                         print(f"成功，取得 {len(month_data)} 筆。")
                         for row in month_data:
-                            # row: [日期(民國), 開盤, 最高, 最低, 收盤]
                             date_parts = row[0].split("/")
                             if len(date_parts) == 3:
                                 y_ad = int(date_parts[0]) + 1911
@@ -163,7 +263,6 @@ def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="�
                                 d_val = int(date_parts[2])
                                 row_dt = datetime.date(y_ad, m_val, d_val)
                                 
-                                # 篩選在起訖範圍內 (包含今日)
                                 if start_dt <= row_dt <= end_dt:
                                     all_records.append({
                                         "民國日期": row[0],
@@ -173,11 +272,9 @@ def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="�
                                         "最低指數": float(row[3].replace(",", "")),
                                         "收盤指數": float(row[4].replace(",", ""))
                                     })
-                        success = True
                         break
                     else:
                         print(f"查無資料或回傳狀態非 OK: {data.get('stat')}")
-                        success = True
                         break
                 else:
                     print(f"HTTP 錯誤碼: {resp.status_code}")
@@ -185,41 +282,26 @@ def fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="�
                 print(f"發生異常: {e}")
                 time.sleep(2)
                 
-        # TWSE 防爬蟲機制：請求間隔 delay 秒
         if idx < len(target_months):
             time.sleep(delay)
             
     df = pd.DataFrame(all_records)
     if not df.empty:
-        # 依日期排序並去除重複
         df.drop_duplicates(subset=["西元日期"], inplace=True)
         df.sort_values(by="西元日期", inplace=True)
         df.reset_index(drop=True, inplace=True)
         
-        # 動態存檔檔名，反映實際抓取的起訖日期
-        csv_filename = f"加權股價指數歷史資料_{start_tw_str}_{end_tw_str}.csv"
-        excel_filename = f"加權股價指數歷史資料_{start_tw_str}_{end_tw_str}.xlsx"
-        
-        # 輸出 UTF-8-SIG 讓 Excel 直接開啟不會亂碼
-        df.to_csv(csv_filename, index=False, encoding="utf-8-sig")
-        df.to_excel(excel_filename, index=False)
-        
-        print("\n================ 抓取完成 ================")
-        print(f"總共取得 {len(df)} 筆交易日資料")
-        print(f"資料起訖：{df['民國日期'].iloc[0]} ~ {df['民國日期'].iloc[-1]}")
-        print(f"CSV 存檔位置：{csv_filename}")
-        print(f"Excel 存檔位置：{excel_filename}")
-        
-        # 寫入 SQLite 資料庫「股市資料庫.db」的「大盤資料表」
         save_to_sqlite(df, db_path=db_path, table_name=table_name)
-        
-        print("\n最新 5 筆大盤指數資料預覽：")
-        print(df.tail(5).to_string(index=False))
         return df
-    else:
-        print("未抓取到任何資料。")
-        return None
+    return None
 
 if __name__ == "__main__":
-    # 執行前清空資料表，並抓取民國 114 年 1 月 1 日 (2025-01-01) 起至今日 (動態變數)
-    fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, db_path="股市資料庫.db", table_name="大盤資料表", clear_table=True, delay=2.0)
+    parser = argparse.ArgumentParser(description="TWSE 大盤資料抓取與更新工具")
+    parser.add_argument("--recent", action="store_true", help="只檢查並更新最近一星期缺失之大盤資料")
+    args = parser.parse_args()
+    
+    if args.recent:
+        update_recent_week_taiex()
+    else:
+        # 全量模式
+        fetch_twse_taiex(start_date_str="2025-01-01", end_date_str=None, clear_table=True, delay=2.0)
